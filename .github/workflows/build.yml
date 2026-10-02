@@ -14,44 +14,34 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
-      - name: 探测 SDK 与 WDK 安装渠道
+      - name: Restore NuGet WDK + SDK packages
+        run: nuget restore .\packages.config -PackagesDirectory .\packages\
+
+      - name: Verify WDK props
         shell: pwsh
         run: |
-          Write-Host "=== SDK Include 版本 ==="
-          Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include" -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
-          Write-Host "=== winget 版本 ==="
-          winget --version
-          Write-Host "=== winget 可用的 Windows WDK ==="
-          winget search --query "Windows WDK" --source winget --accept-source-agreements 2>&1 | Out-String
+          Write-Host "=== packages ==="
+          Get-ChildItem "packages" -Directory | Select-Object -ExpandProperty Name
+          Write-Host "=== WDK props ==="
+          Get-ChildItem "packages" -Recurse -Filter "Microsoft.Windows.WDK.x64.props" | Select-Object -ExpandProperty FullName
+          Write-Host "=== stampinf in package ==="
+          Get-ChildItem "packages" -Recurse -Filter "stampinf.exe" | Select-Object -First 1 -ExpandProperty FullName
 
-      - name: 安装 WDK (winget)
+      - name: Build WinUHid.dll (user-mode lib)
+        run: msbuild "WinUHid\WinUHid.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="%GITHUB_WORKSPACE%\" /m /verbosity:minimal
+
+      - name: Build WinUHidDriver.dll (UMDF 2.23)
+        run: msbuild "WinUHid Driver\WinUHid Driver.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="%GITHUB_WORKSPACE%\" /m /verbosity:minimal
+
+      - name: List outputs
         shell: pwsh
         run: |
-          winget install --id Microsoft.WindowsWDK.10.0.26100 --accept-source-agreements --accept-package-agreements --silent --disable-interactivity 2>&1 | Out-String
-
-      - name: 验证 stampinf 与 wdf.h
-        shell: pwsh
-        run: |
-          Write-Host "=== stampinf ==="
-          Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter stampinf.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          Write-Host "=== wdf.h ==="
-          Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include" -Recurse -Filter wdf.h -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-
-      - name: 编译用户态库 WinUHid.dll
-        shell: pwsh
-        run: msbuild "WinUHid\WinUHid.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="$env:GITHUB_WORKSPACE\" /m /verbosity:minimal
-
-      - name: 编译驱动 WinUHidDriver.dll
-        shell: pwsh
-        run: msbuild "WinUHid Driver\WinUHid Driver.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="$env:GITHUB_WORKSPACE\" /m /verbosity:minimal
-
-      - name: 产物清单
-        shell: pwsh
-        run: |
-          Write-Host "=== build 目录产物 ==="
+          Write-Host "=== build outputs ==="
           Get-ChildItem "build" -Recurse -File -ErrorAction SilentlyContinue | Select-Object FullName, Length
+          Write-Host "=== inf UmdfLibraryVersion ==="
+          Get-ChildItem "build" -Recurse -Filter "*.inf" | ForEach-Object { Write-Host "--- $($_.FullName)"; Select-String -Path $_.FullName -Pattern "UmdfLibraryVersion|DriverVer" }
 
-      - name: 上传产物
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: winuhid-x64
