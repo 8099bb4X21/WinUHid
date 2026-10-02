@@ -25,7 +25,16 @@ jobs:
           Write-Host "=== WDK props ==="
           Get-ChildItem "packages" -Recurse -Filter "Microsoft.Windows.WDK.x64.props" | Select-Object -ExpandProperty FullName
           Write-Host "=== stampinf in package ==="
-          Get-ChildItem "packages" -Recurse -Filter "stampinf.exe" | Select-Object -First 1 -ExpandProperty FullName
+          Get-ChildItem "packages" -Recurse -Filter "stampinf.exe" | Select-Object -ExpandProperty FullName
+
+      - name: Add WDK tools to PATH
+        shell: pwsh
+        run: |
+          $stamp = Get-ChildItem "packages" -Recurse -Filter "stampinf.exe" | Where-Object { $_.FullName -match "\\x64\\" } | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $stamp) { $stamp = Get-ChildItem "packages" -Recurse -Filter "stampinf.exe" | Select-Object -First 1 -ExpandProperty FullName }
+          $dir = Split-Path $stamp
+          $dir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          Write-Host "WDK tools dir added to PATH: $dir"
 
       - name: Build WinUHid.dll (user-mode lib)
         shell: pwsh
