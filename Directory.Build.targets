@@ -1,0 +1,9 @@
+<Project>
+  <!-- UMDF 驱动补 WDK 的 VHID 框架库目录（NuGet WDK 包内路径，相对仓库根确定）。
+       用 .targets（晚导入）而不用 .props，确保追加值不被工具集覆盖。 -->
+  <ItemDefinitionGroup Condition="'$(PlatformToolset)'=='WindowsUserModeDriver10.0' and '$(Platform)'=='x64'">
+    <Link>
+      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)packages\Microsoft.Windows.WDK.x64.10.0.28000.2526\c\Lib\10.0.28000.0\um\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>
