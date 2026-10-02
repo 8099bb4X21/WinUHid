@@ -1,0 +1,20 @@
+WinUHid Win10/Win11 兼容驱动包（UMDF 2.23）安装说明
+============================================
+
+适用：Windows 10 1709 及以上（含 19045 / 22H2）、Windows 11。
+作用：解决官方包 UMDF 2.33 在 Win10 上装不上（Event 219 / 0xC0000365）的问题。
+
+【安装】
+1. 解压本包到任意目录（路径不要含中文）。
+2. 右键 Run-Install.cmd -> 以管理员身份运行。
+3. 看到 Result: OK 即成功；若提示重启，点重启（不是关机再开）。
+4. 双击 Run-Status.cmd 确认：device reachable / Result: OK。
+
+【证书】
+首次安装会自动把 WinUHidPublisher.cer 装入"受信任的根证书"与"受信任的发布者"。
+证书指纹（SHA1）：9946D2514F32DC2A4115C280B8DE1A14ABBA72D7
+可用命令核对：certutil -dump WinUHidPublisher.cer
+
+【源码】
+驱动源码（MIT）：https://github.com/cgutman/WinUHid
+本包为 UMDF 2.23 重新编译版：https://github.com/8099bb4X21/WinUHid
