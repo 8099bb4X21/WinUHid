@@ -53,9 +53,53 @@ jobs:
           Write-Host "=== inf UmdfLibraryVersion ==="
           Get-ChildItem "build" -Recurse -Filter "*.inf" | ForEach-Object { Write-Host "--- $($_.FullName)"; Select-String -Path $_.FullName -Pattern "UmdfLibraryVersion|DriverVer" }
 
-      - name: Upload artifacts
+      - name: Sign & package
+        shell: pwsh
+        env:
+          WINUHID_PFX_BASE64: ${{ secrets.WINUHID_PFX_BASE64 }}
+          WINUHID_PFX_PASSWORD: ${{ secrets.WINUHID_PFX_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $pfx = "$env:RUNNER_TEMP\winuhid.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINUHID_PFX_BASE64))
+
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match "\\x64\\" } | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) { throw "signtool.exe not found" }
+          Write-Host "signtool: $signtool"
+
+          # 定位构建产物（OutDir 与工程中间目录位置不一，用查找）
+          $dll  = Get-ChildItem "build" -Recurse -Filter "WinUHidDriver.dll" | Select-Object -First 1 -ExpandProperty FullName
+          $cat  = Get-ChildItem "build" -Recurse -Filter "*.cat" | Select-Object -First 1 -ExpandProperty FullName
+          $inf  = Get-ChildItem "build" -Recurse -Filter "WinUHidDriver.inf" | Select-Object -First 1 -ExpandProperty FullName
+          $udll = Get-ChildItem "build" -Recurse -Filter "WinUHid.dll" | Where-Object { $_.Name -eq "WinUHid.dll" } | Select-Object -First 1 -ExpandProperty FullName
+          Write-Host "dll=$dll"; Write-Host "cat=$cat"; Write-Host "inf=$inf"; Write-Host "udll=$udll"
+
+          # 用固定证书重签 DLL 与 cat（带 RFC3161 时间戳）
+          & $signtool sign /f $pfx /p $env:WINUHID_PFX_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 $dll
+          & $signtool sign /f $pfx /p $env:WINUHID_PFX_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 $cat
+
+          # 从 pfx 导出公钥证书 cer（供用户装信任）
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($pfx, $env:WINUHID_PFX_PASSWORD)
+          $cerBytes = $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+
+          # 组装安装包目录（结构与 install-winuhid.ps1 期望一致）
+          $pkg = "pkg"; New-Item -ItemType Directory -Force -Path "$pkg\driver" | Out-Null
+          Copy-Item $dll  "$pkg\driver\WinUHidDriver.dll"
+          Copy-Item $cat  "$pkg\driver\WinUHidDriver.cat"
+          Copy-Item $inf  "$pkg\driver\WinUHidDriver.inf"
+          Copy-Item $udll "$pkg\WinUHid.dll"
+          [IO.File]::WriteAllBytes("$pkg\WinUHidPublisher.cer", $cerBytes)
+          Copy-Item "packaging\*" "$pkg\" -Recurse -Force
+
+          Compress-Archive -Path "$pkg\*" -DestinationPath "WinUHid_Win10_2.23.zip" -Force
+          Write-Host "CERT_THUMBPRINT=$($cert.Thumbprint)"
+          Get-ChildItem "WinUHid_Win10_2.23.zip" | Select-Object Name, Length
+
+      - name: Upload package + raw build
         uses: actions/upload-artifact@v4
         with:
           name: winuhid-x64
-          path: build/
+          path: |
+            WinUHid_Win10_2.23.zip
+            build/
           if-no-files-found: warn
