@@ -35,6 +35,18 @@ jobs:
           $dir = Split-Path $stamp
           $dir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           Write-Host "WDK tools dir added to PATH: $dir"
+          # InfVerif 按相对路径 x86\InfVerif.dll 加载（基准=msbuild 工作目录=仓库根），把包里的 x86 目录拷到仓库根
+          $infverif = Get-ChildItem "packages" -Recurse -Filter "InfVerif.dll" | Where-Object { $_.FullName -match "\\x86\\" } | Select-Object -First 1
+          if ($infverif) {
+            $x86src = $infverif.DirectoryName
+            Copy-Item $x86src "$env:GITHUB_WORKSPACE\x86" -Recurse -Force
+            Write-Host "copied $x86src to workspace x86"
+          } else {
+            Write-Host "WARN: no x86 InfVerif.dll found in packages"
+            Get-ChildItem "packages" -Recurse -Filter "InfVerif*" | Select-Object -ExpandProperty FullName
+          }
+          $vhf = Get-ChildItem "packages" -Recurse -Filter "VhfUm.lib" | Select-Object -ExpandProperty FullName
+          Write-Host "VhfUm.lib locations:"; $vhf | ForEach-Object { Write-Host "  $_" }
 
       - name: Build WinUHid.dll (user-mode lib)
         shell: pwsh
@@ -42,7 +54,11 @@ jobs:
 
       - name: Build WinUHidDriver.dll (UMDF 2.23)
         shell: pwsh
-        run: msbuild "WinUHid Driver\WinUHid Driver.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="$env:GITHUB_WORKSPACE\" /m /verbosity:minimal
+        run: |
+          $vhf = Get-ChildItem "packages" -Recurse -Filter "VhfUm.lib" | Select-Object -First 1 -ExpandProperty DirectoryName
+          $env:LIB = "$vhf;$env:LIB"
+          Write-Host "LIB=$env:LIB"
+          msbuild "WinUHid Driver\WinUHid Driver.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="$env:GITHUB_WORKSPACE\" /m /verbosity:minimal
 
       - name: List outputs
         shell: pwsh
