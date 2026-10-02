@@ -28,10 +28,12 @@ jobs:
           Get-ChildItem "packages" -Recurse -Filter "stampinf.exe" | Select-Object -First 1 -ExpandProperty FullName
 
       - name: Build WinUHid.dll (user-mode lib)
-        run: msbuild "WinUHid\WinUHid.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="%GITHUB_WORKSPACE%\" /m /verbosity:minimal
+        shell: pwsh
+        run: msbuild "WinUHid\WinUHid.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="$env:GITHUB_WORKSPACE\" /m /verbosity:minimal
 
       - name: Build WinUHidDriver.dll (UMDF 2.23)
-        run: msbuild "WinUHid Driver\WinUHid Driver.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="%GITHUB_WORKSPACE%\" /m /verbosity:minimal
+        shell: pwsh
+        run: msbuild "WinUHid Driver\WinUHid Driver.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="$env:GITHUB_WORKSPACE\" /m /verbosity:minimal
 
       - name: List outputs
         shell: pwsh
