@@ -11,19 +11,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 探测工具链
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: 探测 SDK 与 WDK 安装渠道
         shell: pwsh
         run: |
-          Write-Host "=== WDK 目录 ==="
-          if (Test-Path "C:\Program Files (x86)\Windows Kits\10") {
-            Get-ChildItem "C:\Program Files (x86)\Windows Kits\10" | Select-Object -ExpandProperty Name
-          } else {
-            Write-Host "WDK 路径不存在"
-          }
+          Write-Host "=== SDK Include 版本 ==="
+          Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include" -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+          Write-Host "=== winget 版本 ==="
+          winget --version
+          Write-Host "=== winget 可用的 Windows WDK ==="
+          winget search --query "Windows WDK" --source winget --accept-source-agreements 2>&1 | Out-String
+
+      - name: 安装 WDK (winget)
+        shell: pwsh
+        run: |
+          winget install --id Microsoft.WindowsWDK.10.0.26100 --accept-source-agreements --accept-package-agreements --silent --disable-interactivity 2>&1 | Out-String
+
+      - name: 验证 stampinf 与 wdf.h
+        shell: pwsh
+        run: |
           Write-Host "=== stampinf ==="
           Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter stampinf.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          Write-Host "=== MSBuild 版本 ==="
-          msbuild -version
+          Write-Host "=== wdf.h ==="
+          Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include" -Recurse -Filter wdf.h -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 
       - name: 编译用户态库 WinUHid.dll
         shell: pwsh
