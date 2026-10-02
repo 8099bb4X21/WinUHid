@@ -48,6 +48,7 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <UMDF_VERSION_MAJOR>2</UMDF_VERSION_MAJOR>
+    <UMDF_VERSION_MINOR>23</UMDF_VERSION_MINOR>
   </PropertyGroup>
   <Import Project="..\WinUHidCppProps.props" />
   <ItemDefinitionGroup>
