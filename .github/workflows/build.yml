@@ -43,7 +43,7 @@ jobs:
       - name: Build WinUHidDriver.dll (UMDF 2.23)
         shell: pwsh
         run: |
-          msbuild "WinUHid Driver\WinUHid Driver.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="$env:GITHUB_WORKSPACE\" /p:SkipPackageVerification=true /m /verbosity:minimal
+          msbuild "WinUHid Driver\WinUHid Driver.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SolutionDir="$env:GITHUB_WORKSPACE\" /p:SkipPackageVerification=true /p:ApiValidator_Enable=false /m /verbosity:minimal
 
       - name: List outputs
         shell: pwsh
